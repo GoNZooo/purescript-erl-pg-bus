@@ -1,29 +1,29 @@
 -module(pgBus@foreign).
 
--define(SUBSCRIPTION_NAME(Name, Pid), {?MODULE, Name, Pid}).
+-define(SUBSCRIPTION_NAME(BusName, Pid), {?MODULE, BusName, Pid}).
 -define(UNSUBSCRIBE_MESSAGE, 'pg_bus_unsubscribe$').
 -define(PUBLISHED_MESSAGE(Message), {'pg_bus_publish$', Message}).
 
 -export([subscribe/3, unsubscribe/2, publish/2]).
 
-subscribe(Name, F, Pid) ->
+subscribe(BusName, F, Pid) ->
   fun() ->
-     case subscription_exists(Name, Pid) of
+     case subscription_exists(BusName, Pid) of
        true -> unit;
        false ->
          SubscriptionPid = spawn(fun() -> subscribe_loop(Pid, F) end),
-         pg:join(Name, SubscriptionPid),
+         pg:join(BusName, SubscriptionPid),
          io:format("Subscription spawned: ~p~n", [SubscriptionPid]),
-         case register_subscription_name(Name, Pid, SubscriptionPid) of
+         case register_subscription_name(BusName, Pid, SubscriptionPid) of
            {ok, _SubscriptionName} -> unit;
            {error, {already_registered, _SubscriptionName}} -> unit
          end
      end
   end.
 
-unsubscribe(Name, Pid) ->
+unsubscribe(BusName, Pid) ->
   fun() ->
-     SubscriptionName = ?SUBSCRIPTION_NAME(Name, Pid),
+     SubscriptionName = ?SUBSCRIPTION_NAME(BusName, Pid),
      case global:whereis_name(SubscriptionName) of
        SubscriptionPid when is_pid(SubscriptionPid) -> SubscriptionPid ! ?UNSUBSCRIBE_MESSAGE;
        undefined -> unit
@@ -31,14 +31,10 @@ unsubscribe(Name, Pid) ->
      unit
   end.
 
-publish(Name, Message) ->
+publish(BusName, Message) ->
   fun() ->
-     SubscriptionName = ?SUBSCRIPTION_NAME(Name, self()),
-     case global:whereis_name(SubscriptionName) of
-       Pid when is_pid(Pid) -> Pid ! ?PUBLISHED_MESSAGE(Message);
-       undefined -> unit
-     end,
-     unit
+    MemberPids = pg:get_members(BusName),
+    lists:foreach(fun(Pid) -> Pid ! ?PUBLISHED_MESSAGE(Message) end, MemberPids)
   end.
 
 %%% Internals
@@ -56,8 +52,8 @@ subscribe_loop(Pid, F) ->
       subscribe_loop(Pid, F)
   end.
 
-register_subscription_name(Name, Pid, SubscriptionPid) ->
-  SubscriptionName = ?SUBSCRIPTION_NAME(Name, Pid),
+register_subscription_name(BusName, Pid, SubscriptionPid) ->
+  SubscriptionName = ?SUBSCRIPTION_NAME(BusName, Pid),
   case global:register_name(SubscriptionName, SubscriptionPid) of
     yes ->
       {ok, SubscriptionName};
@@ -65,8 +61,8 @@ register_subscription_name(Name, Pid, SubscriptionPid) ->
       {error, {already_registered, SubscriptionName}}
   end.
 
-subscription_exists(Name, Pid) ->
-  SubscriptionName = ?SUBSCRIPTION_NAME(Name, Pid),
+subscription_exists(BusName, Pid) ->
+  SubscriptionName = ?SUBSCRIPTION_NAME(BusName, Pid),
   case global:whereis_name(SubscriptionName) of
     SubscriptionPid when is_pid(SubscriptionPid) ->
       true;
