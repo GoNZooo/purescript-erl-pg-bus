@@ -13,7 +13,6 @@ subscribe(BusName, F, Pid) ->
        false ->
          SubscriptionPid = spawn(fun() -> subscribe_loop(Pid, F) end),
          pg:join(BusName, SubscriptionPid),
-         io:format("Subscription spawned: ~p~n", [SubscriptionPid]),
          case register_subscription_name(BusName, Pid, SubscriptionPid) of
            {ok, _SubscriptionName} -> unit;
            {error, {already_registered, _SubscriptionName}} -> unit
@@ -33,8 +32,8 @@ unsubscribe(BusName, Pid) ->
 
 publish(BusName, Message) ->
   fun() ->
-    MemberPids = pg:get_members(BusName),
-    lists:foreach(fun(Pid) -> Pid ! ?PUBLISHED_MESSAGE(Message) end, MemberPids)
+     MemberPids = pg:get_members(BusName),
+     lists:foreach(fun(Pid) -> Pid ! ?PUBLISHED_MESSAGE(Message) end, MemberPids)
   end.
 
 %%% Internals
@@ -44,11 +43,7 @@ subscribe_loop(Pid, F) ->
     ?UNSUBSCRIBE_MESSAGE ->
       ok;
     ?PUBLISHED_MESSAGE(Message) ->
-      io:format("Message received: ~p~n", [Message]),
       Pid ! F(Message),
-      subscribe_loop(Pid, F);
-    Other ->
-      io:format("Unknown message received: ~p~n", [Other]),
       subscribe_loop(Pid, F)
   end.
 
