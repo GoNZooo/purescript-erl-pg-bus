@@ -50,6 +50,9 @@ subscribe_loop(Pid, F) ->
     ?PUBLISHED_MESSAGE(Message) ->
       io:format("Message received: ~p~n", [Message]),
       Pid ! F(Message),
+      subscribe_loop(Pid, F);
+    Other ->
+      io:format("Unknown message received: ~p~n", [Other]),
       subscribe_loop(Pid, F)
   end.
 
