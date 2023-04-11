@@ -12,6 +12,8 @@ subscribe(Name, F, Pid) ->
        true -> unit;
        false ->
          SubscriptionPid = spawn(fun() -> subscribe_loop(Pid, F) end),
+         pg:join(Name, SubscriptionPid),
+         io:format("Subscription spawned: ~p~n", [SubscriptionPid]),
          case register_subscription_name(Name, Pid, SubscriptionPid) of
            {ok, _SubscriptionName} -> unit;
            {error, {already_registered, _SubscriptionName}} -> unit
