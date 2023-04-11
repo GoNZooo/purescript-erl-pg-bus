@@ -24,6 +24,10 @@ foreign import subscribe
   -> Process processMessage
   -> Effect Unit
 
-foreign import unsubscribe :: forall name message. Bus name message -> Process message -> Effect Unit
+foreign import unsubscribe
+  :: forall name busMessage processMessage
+   . Bus name busMessage
+  -> Process processMessage
+  -> Effect Unit
 
 foreign import publish :: forall name message. Bus name message -> message -> Effect Unit
