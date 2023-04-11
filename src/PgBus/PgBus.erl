@@ -46,6 +46,7 @@ subscribe_loop(Pid, F) ->
     ?UNSUBSCRIBE_MESSAGE ->
       ok;
     ?PUBLISHED_MESSAGE(Message) ->
+      io:format("Message received: ~p~n", [Message]),
       Pid ! F(Message),
       subscribe_loop(Pid, F)
   end.
